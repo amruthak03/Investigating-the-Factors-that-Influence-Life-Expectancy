@@ -1,5 +1,4 @@
-setwd("/Users/amrutha/Documents/Amrutha_Imp/BU-Spring23/CS555/Project")
-
+#Required libraries
 library(dplyr)
 library(glmnet)
 library(ggplot2)
@@ -14,11 +13,8 @@ library(caret)
 df <- read.csv("Life Expectancy Data.csv")
 str(df)
 #2 categorical variables - country and status
-
-################### EDA ###############################################################################
 #Data Cleaning
-#the column thinness..1.19.years is rate of thinness among people aged 10-19. Hence we will rename the
-#column
+#the column thinness..1.19.years is rate of thinness among people aged 10-19. Hence, renaming the column
 df <- df %>%
   rename("thinness.10.19.years" = "thinness..1.19.years")
 colnames(df)
@@ -32,20 +28,19 @@ check_null <- function(df){
 }
 
 check_null(df)
+         
 #percentage of missing values
 (colSums(is.na(df))/nrow(df))*100
 #We can see that there are missing values, but the no. of missing values is not large enough to remove
 #the columns. Hence, impute the missing values
 
-#the target variable has 10 missing values, so will remove the rows with missing values. For the rest 
-#I perform impuation
+#the target variable has 10 missing values, so will remove the rows with missing values. For the rest, I perform imputation
 nrow(df)
 df <- df[!is.na(df$Life.expectancy),]
 nrow(df)
 
 check_null(df)
-##since it is a time-series data it is better to impute missing values based on the values from the 
-#same year.
+#since it is time-series data it is better to impute missing values based on the values from the same year.
 cols_to_impute <- c("Alcohol", "Hepatitis.B", "BMI", "Polio", "Total.expenditure", "Diphtheria", 
                     "GDP", "Population", "thinness.10.19.years", "thinness.5.9.years", 
                     "Income.composition.of.resources", "Schooling") 
@@ -55,8 +50,7 @@ for (i in 1:length(cols_to_impute)) {
   hist(df[,cols_to_impute[i]], main=cols_to_impute[i])
 }
 
-#will impute using median because median is not sensitive to outliers and the most of the columns' 
-#distributions are skewed
+#will impute using median because the median is not sensitive to outliers and most of the columns' distributions are skewed
 df_imputed <- df %>%
   group_by(Year) %>%
   mutate(across(cols_to_impute, ~ ifelse(is.na(.), median(., na.rm = TRUE), .))) %>%
@@ -67,40 +61,37 @@ check_null(df_imputed)
 #converting df_imputed from tibble to dataframe
 df_imputed <- data.frame(df_imputed)
 
-#again checking the distribution to see if the distributions of the columns are not changed 
+#again check the distribution to see if the distributions of the columns are not changed drastically
 for (i in 1:length(cols_to_impute)) {
   hist(df_imputed[,cols_to_impute[i]], main=cols_to_impute[i])
 }
 par(mfrow=c(1,1))
 
 #Outlier Detection
-# Subset only numeric columns
+#Subset only numeric columns
 numeric_cols <- sapply(df_imputed, is.numeric)
 df_numeric <- df_imputed[, numeric_cols]
 colnames(df_numeric)
 df_numeric <- df_numeric[,-1]#removing year column
 
 #Boxplot
-# Close any open graphics devices
+#Close any open graphics devices
 dev.off()
-# Open a new graphics device
+#Open a new graphics device
 dev.new()
 
-# Create a list of ggplot objects for each column
+#Create a list of ggplot objects for each column
 plots_list <- lapply(names(df_numeric), function(col){
   ggplot(df_numeric, aes(x = "", y = df_numeric[[col]])) +
     geom_boxplot() +
     ggtitle(paste("Boxplot of", col))
 })
 
-# Create a grid of plots with 4 columns per row
+#Create a grid of plots with 4 columns per row
 grid.arrange(grobs = plots_list, ncol = 4)
 
-#Infant.Deaths represents no. of infant deaths per 1,000 population. 
+#Infant.Deaths represent no. of infant deaths per 1,000 population. 
 #That is why the number beyond 1000 is unrealistic. 
-#Therefore I will remove them as outliers. The same is true for measles and 
-#deaths under five, as both are a number per 1,000 population.
-
 #removing rows where values are greater than 1000 for measles, infant death, 
 #and under.five.deaths columns
 df_imputed <- df_imputed[df_imputed$infant.deaths <= 1000 & 
@@ -111,11 +102,11 @@ summary(df_imputed[,c("infant.deaths","Measles","under.five.deaths")])
 
 #The BMI values are very unrealistic because the value plus 40 is considered 
 #extreme obesity. The median is over 40 and some countries have an average of 
-#around 60 which is not possible. Hence I will delete this whole column.
+#around 60 which is not possible. Hence, I will delete this entire column as it has majorly redundant data.
 df_imputed <- df_imputed[, -11]
 colnames(df_imputed)
 
-#Treating rest of the outliers using winsorize method
+#Treating the rest of the outliers using Winsorize method
 cols <- c("Life.expectancy","Adult.Mortality", "Alcohol", 
              "Measles", "under.five.deaths","Total.expenditure",
              "thinness.10.19.years", "thinness.5.9.years",
@@ -157,9 +148,9 @@ grid.arrange(grobs = plots_list, ncol = 4)
 #Let's observe the distribution of life expectancy
 hist(df_imputed$Life.expectancy, main = "Distribution of Life Expectancy",
      xlab = "Life Expectancy", ylim = c(0,400))
-#the distribution is left skewed
+#the distribution is left-skewed
 
-#Top 10 countries based on the life expectancy
+#Top 10 countries based on life expectancy
 #a new dataframe with the top 10 countries by life expectancy
 df_top10 <- df_imputed %>% 
   select(Country, Life.expectancy) %>% 
@@ -191,10 +182,10 @@ ggplot(highest_life_exp, aes(x = Year, y = Life.expectancy, fill = Country)) +
 #Austria in 2008, 2010, & 2011
 
 #Pie chart to find the distribution of status among the countries represented
-# creating a table with the counts of each status
+# Creating a table with the counts of each status
 status_table <- table(df_imputed$Status)
 
-# Creating a data frame with the counts and percentages
+# Creating a dataframe with the counts and percentages
 df_status <- data.frame(Status = names(status_table),
                         Count = as.numeric(status_table),
                         Percentage = round((as.numeric(status_table)/sum(status_table)*100),2))
@@ -205,10 +196,9 @@ ggplot(df_status, aes(x = "", y = Count, fill = Status)) +
   coord_polar(theta = "y") +
   theme_void() +
   geom_text(aes(label = paste0(Percentage, "%")), position = position_stack(vjust = 0.5))
-#We can observe that 80.19% of the countries are developing countries and only
-# a few are developed countries (19.81%)
+#We can observe that 80.19% of the countries are developing countries and only a few are developed countries (19.81%)
 
-#Which countries, developed or developing, has more life expectacny
+#Which countries, developed or developing, has more life expectancy
 # Categorize the countries into developing and developed
 df_sub <- df_imputed %>%
   mutate(country_status = ifelse(Status == "Developed", "Developed", "Developing"))
@@ -224,20 +214,20 @@ ggplot(df_avg_life, aes(x = Year, y = avg_life_exp, color = country_status)) +
   ggtitle("Average Life Expectancy of Developing and Developed Countries") +
   xlab("Year") +
   ylab("Average Life Expectancy")
-#We can see from the graph that developed countries have more life expectancy
-#than in developing countries.
+#We can see from the graph that developed countries have more life expectancy than in developing countries.
 
 #correlation matrix
 corrplot(cor(df_imputed[,-c(1,3)]),method="number", number.cex = 0.5)
 corrplot(cor(df_imputed[,-c(1,3)]))
-#We can observe that Life expectancy is highly correlated to Adult.Mortality, 
+#We can observe that Life expectancy is highly correlated to Adults.Mortality, 
 #HIV/AIDS, Income composition of resources, schooling, thinness 10.19.years, 
 #thinness 5.9.years
-#won't pass year as an input it's irrelevant and also checking it's correlation
+#won't pass year as input it's irrelevant and also checking it's correlation
 cor(df_imputed$Year, df_imputed$Life.expectancy) 
 #no correlation so remove year column
 new_df <- df_imputed[,-2]
 write.csv(new_df, file = "after_cleaning_data.csv")
+         
 ################### Feature Selection Using Lasso Regression #############################
 y <- new_df$Life.expectancy
 # Scale the data - because lasso is sensitive to the scale of the features
@@ -291,18 +281,16 @@ summary(model1)
 pt(58.87, df=n-2, lower.tail = F)*2
 #t=58.87 
 #since t > critical value, we reject H0. 
-#We have significance evidence at the alpha=0.05 level that there is a linear 
+#We have significant evidence at the alpha=0.05 level that there is a linear 
 #association between no. of years of schooling and lifespan of humans
 abline(model1)
-#In this case, the estimate value of 2.3547 suggests that on average, 
+#In this case, the estimated value of 2.3547 suggests that on average, 
 #for each additional year of schooling, the life expectancy increases by 
-#approximately 2.35 years 
-#the expected value of life expectancy is 41.18 when a person has no years of 
-#schooling
+#approximately 2.35 years the expected value of life expectancy is 41.18 when a person has no years of schooling
 #computing R^2 value
 r_squared <- (cor(new_df$Schooling, new_df$Life.expectancy)**2)
 r_squared
-#59.07% of variability in the life expectancy of humans can be explained by the no. 
+#59.07% of the variability in the life expectancy of humans can be explained by the no. 
 #of years of schooling
 
 #2. Is there a significant relationship between adult mortality rate and life 
@@ -338,18 +326,17 @@ abline(model2)
 #R-squared
 r_squared <- (cor(new_df$Adult.Mortality, new_df$Life.expectancy)**2)
 r_squared
-#About 50% of variability in the life expectancy of humans can be explained by the 
+#About 50% of the variability in the life expectancy of humans can be explained by the 
 #adult mortality rate
 summary(model2)
 #For a one-unit increase in adult mortality rate, the predicted value of life 
 #expectancy decreases by 0.05678 years
 
 #Multiple Linear Regression
-#3.How do various health indicators (HIV/AIDS, Diphtheria, adult mortality, under
-#five deaths, and thinness 5-9years) affect the life expectancy.
+#3. How do various health indicators (HIV/AIDS, Diphtheria, adult mortality, under
+#five deaths, and thinness 5-9years) affect life expectancy?
 pairs(new_df[,-c(1,2)])
-#from the pair plot we can say that HIV_AIDS, Diphtheria have no association with 
-#life expectancy. Hence, we won't include them
+#from the pair plot we can say that HIV_AIDS and Diphtheria have no association with life expectancy. Hence, we won't include them
 #To address this question we have to perform multiple linear regression
 model3 <- lm(new_df$Life.expectancy ~ 
                new_df$Adult.Mortality +
@@ -358,21 +345,21 @@ model3 <- lm(new_df$Life.expectancy ~
 summary(model3)
 
 #H0: ßam = ßth = ßun = 0 (adult mortality rate, rate of thinness (5-9 years of age),
-# and under five deaths) are not significant predictors
+# and under-five deaths) are not significant predictors
 #Ha: at least one of the slope coefficients is different than 0; that is,
-#adult mortality rate and/or rate of thinness and/or under five deaths are
-#significant predictors/is a significant predictors of life expectancy)
+#adult mortality rate and/or rate of thinness and/or under-five deaths are
+#significant predictors/is a significant predictor of life expectancy)
 #alpha=0.05
 #Global F-test
 df1<-3
 df2<-n-3-1
 #critical_value
 qf(0.05, df1 = df1, df2 = df2, lower.tail = FALSE)
-#Decision Rule:Reject H0, if F>= 2.60861. Otherwise fail to reject H0
+#Decision Rule:Reject H0, if F>= 2.60861. Otherwise, fail to reject H0
 #F=1570 - from the summary table
 #since F > critical we reject H0. That is, there is significance
 #evidence at alpha=0.05 level that at least one of the predictors 
-#(adult mortality, thinness rate, or under five deaths) 
+#(adult mortality, thinness rate, or under-five deaths) 
 #is linearly associated with life expectancy
 #Individual t-test
 #For Adult mortality rate:
@@ -409,20 +396,20 @@ qt(0.05/2, df=n-3-1, lower.tail = F)
 t <- -0.10007/0.00512 #from the summary table or -19.6 directly from the table
 t
 #Since, |t| > critical, we reject H0. That is, we have significant evidence at
-#alpha=0.05 level that there is a linear association between number of deaths of 
+#alpha=0.05 level that there is a linear association between the number of deaths of 
 #children under five years of age per 1000 population and life expectancy after 
 #controlling for adult.mortality and thinness.5.9.years
 
 #interpretation
-#For every one unit increase in the adult mortality rate, the life 
+#For every one-unit increase in the adult mortality rate, the life 
 #expectancy decreases by an average of 0.038 years, holding all other 
 #predictors constant.
 
-#For every one unit increase in the percentage of thinness among children aged
+#For every one-unit increase in the percentage of thinness among children aged
 #5-9 years, the life expectancy decreases by an average of 0.7808 years,
 #holding all other predictors constant.
 
-#For every one unit increase in the under five deaths, the life expectancy 
+#For every one-unit increase in the under-five deaths, the life expectancy 
 #decreases by an average of 0.1001 years, holding all other predictors 
 #constant.
 
@@ -451,7 +438,7 @@ ggplot(df_counts, aes(x = continent, y = n)) +
   geom_bar(stat = "identity")
 #most of the countries belong to Africa continent
 
-#numerical summary for life expectancy for each continent (group)
+#numerical summary of life expectancy for each continent (group)
 aggregate(new_df$Life.expectancy, by=list(new_df$continent), summary)
 
 # Create a boxplot of life expectancy by continent
@@ -459,7 +446,7 @@ ggplot(new_df, aes(x = continent, y = Life.expectancy)) +
   geom_boxplot() +
   labs(title = "Life Expectancy by Continent", x = "Continent", y = "Life Expectancy")
 
-#check if continent is a factor variable
+#check if the continent is a factor variable
 is.factor(new_df$continent)
 new_df$continent <- factor(new_df$continent)
 str(new_df)
@@ -494,7 +481,7 @@ TukeyHSD(model4)
 #We don't have significant evidence at alpha=0.05 that the mean life expectancy
 #are different between Oceania-Asia groups as p>0.05
 
-#Creating dummy variables and re-doing one-way ANOVA #Oceania as reference group
+#Creating dummy variables and re-doing one-way ANOVA #Oceania as a reference group
 new_df$Americas <- ifelse(new_df$continent == "Americas", 1, 0)
 new_df$Africa <- ifelse(new_df$continent == "Africa", 1, 0)
 new_df$Europe <- ifelse(new_df$continent == "Europe", 1, 0)
@@ -503,9 +490,8 @@ new_df$Asia <- ifelse(new_df$continent == "Asia", 1, 0)
 model5 <- lm(new_df$Life.expectancy ~ new_df$Americas  + new_df$Africa +
                new_df$Europe + new_df$Asia, data = new_df)
 summary(model5)
-# We can observe the same results as before.F-value and p-value are the same as 
-#before.While the Oceania-America, Oceania-Africa, Oceania-Europe groups are 
-#significant, Oceania-Asia is not.
+# We can observe the same results as before. The f-value and p-value are the same as 
+#before.While the Oceania-America, Oceania-Africa, and Oceania-Europe groups are significant, Oceania-Asia is not.
 
 #interpretation of the beta estimates
 #ß0=71.571 -> mean life expectancy in Oceania(reference group)
@@ -525,7 +511,7 @@ df_log <- new_df[,-c(12,13,14,15)] #removing dummy variables created
 df_log$class <- ifelse(new_df$Life.expectancy > 70, 1, 0)
 
 #5.Exploring the relationship between no. of deaths of children under five years 
-#of age per 1000 population and likelihood of having a long-life
+#of age per 1000 population and the likelihood of having a long-life
 colnames(df_log)
 #split the dataset into train and test
 set.seed(0) # for reproducibility
@@ -534,12 +520,12 @@ train_index <- createDataPartition(df_log$class, p = 0.8, list = FALSE)
 train <- df_log[train_index, ]
 test <- df_log[-train_index, ]
 
-# Fit model on training set
+# Fit model on a training set
 model6 <- glm(class ~ under.five.deaths, data = train, 
              family = binomial)
 # Summary of model
 summary(model6)
-# Evaluate performance on test set
+# Evaluate performance on the test set
 #c-statistics
 predictions <- predict(model6, newdata = test, type = "response")
 # Convert the probabilities to binary predictions
@@ -555,9 +541,9 @@ plot(roc_curve)
 
 #Hypothesis testing
 #H0: ß1=0 (there is no association between and no. of deaths of children under five
-#years of age likelihood of having a long-life)
+#years of age likelihood of having a long life)
 #Ha: ß1!=0 (there is an association between no. of deaths of children under five
-#years of age likelihood of having a long-life)
+#years of age likelihood of having a long life)
 #alpha=0.05
 #z-test
 #critical_value
@@ -567,14 +553,14 @@ z<- -0.05614/0.00368 #from the table
 z  #-15.2554
 #since |z|>critical value and p-value (from the table) < 0.05, we reject H0. 
 #We have significant evidence at alpha=0.05 level that there is an association 
-#between number of deaths of children under five years of age and likelihood of 
+#between the number of deaths of children under five years of age and the likelihood of 
 #having a long-life odds ratio
 exp(-0.05614)
 #For every one-unit increase in the number of deaths of children under five years of
 #age, the odds of having a long-life decrease by a factor of 0.9454 
 
 #6.Interested in predicting whether the person will live long or not from 
-#status, adult mortality rate and income composition of 
+#status, adult mortality rate, and income composition of 
 #resources (changing status to 0s and 1s as it's categorical)
 df_log$Status <- ifelse(df_log$Status == "Developed", 1, 0)
 # Set the seed for reproducibility
@@ -648,6 +634,5 @@ z_in
 exp(11.053993)
 
 #We can observe that the multiple logistic regression model fits the data better
-#because it has the higher auc and accuracy compared to the simple logistic 
-#regression
+#because it has a higher AUC and accuracy compared to the simple logistic regression
 write.csv(df_log, file = "logistic_data.csv")
