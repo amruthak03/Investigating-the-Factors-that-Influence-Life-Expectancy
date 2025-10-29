@@ -1,4 +1,4 @@
-# Investigating the Factors that Influence Life Expectancy
+# Global Life Expectancy Factor Analysis
 ## Project Overview
 This project was completed as part of the "Foundations of Machine Learning" course. The objective of this project was to explore the impact of various factors on life expectancy across the world using various techniques such as Simple Linear Regression, Multiple Linear Regression, one-way ANOVA, Simple Logistic Regression, and Multiple Logistic Regression. 
 
